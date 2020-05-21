@@ -16,7 +16,7 @@ import org.ekstep.analytics.framework.util.JobLogger
 import org.ekstep.analytics.framework.conf.AppConf
 import org.ekstep.analytics.framework._
 
-case class WorkflowInput(sessionKey: WorkflowIndex, events: Buffer[V3Event]) extends AlgoInput
+case class WorkflowInput(sessionKey: WorkflowIndex, events: String]) extends AlgoInput
 case class WorkflowOutput(index: WorkflowIndex, summaries: Buffer[MeasuredEvent]) extends AlgoOutput
 case class WorkflowIndex(did: String, channel: String, pdataId: String)
 
@@ -30,10 +30,15 @@ object WorkFlowSummaryModel extends IBatchModelTemplate[V3Event, WorkflowInput, 
 
         val defaultPDataId = V3PData(AppConf.getConfig("default.consumption.app.id"), Option("1.0"))
         val parallelization = config.getOrElse("parallelization", 20).asInstanceOf[Int];
-        val partitionedData = data.filter(f => !serverEvents.contains(f.eid)).map { x => (WorkflowIndex(x.context.did.getOrElse(""), x.context.channel, x.context.pdata.getOrElse(defaultPDataId).id), Buffer(x)) }
-            .partitionBy(new HashPartitioner(parallelization))
-            .reduceByKey((a, b) => a ++ b);
-        
+        val keyData = data.filter(f => !serverEvents.contains(f.eid)).map { x => (WorkflowIndex(x.context.did.getOrElse(""), x.context.channel, x.context.pdata.getOrElse(defaultPDataId).id), Buffer(x)) }
+              .map(f => (f._1, JSONUtils.serialize(f._2)))
+//        val partitionedData = data.filter(f => !serverEvents.contains(f.eid)).map { x => (WorkflowIndex(x.context.did.getOrElse(""), x.context.channel, x.context.pdata.getOrElse(defaultPDataId).id), Buffer(x)) }
+//            .partitionBy(new HashPartitioner(parallelization))
+//            .reduceByKey((a, b) => a ++ b);
+//
+        val partitionedData = keyData.partitionBy(new HashPartitioner(parallelization))
+                    .reduceByKey((a, b) => a ++ b);
+
         partitionedData.map { x => WorkflowInput(x._1, x._2) }
             
     }
@@ -48,7 +53,7 @@ object WorkFlowSummaryModel extends IBatchModelTemplate[V3Event, WorkflowInput, 
         
         data.map({ f =>
             var summEvents: Buffer[MeasuredEvent] = Buffer();
-            val sortedEvents = f.events.sortBy { x => x.ets }
+            val sortedEvents = JSONUtils.deserialize[Buffer[V3Event]](f.events).sortBy { x => x.ets }
             var rootSummary: org.ekstep.analytics.util.Summary = null
             var currSummary: org.ekstep.analytics.util.Summary = null
             var prevEvent: V3Event = sortedEvents.head
