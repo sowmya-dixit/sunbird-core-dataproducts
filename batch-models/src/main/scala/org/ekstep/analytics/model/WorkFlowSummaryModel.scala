@@ -16,7 +16,7 @@ import org.ekstep.analytics.framework.util.JobLogger
 import org.ekstep.analytics.framework.conf.AppConf
 import org.ekstep.analytics.framework._
 
-case class WorkflowInput(sessionKey: WorkflowIndex, events: String]) extends AlgoInput
+case class WorkflowInput(sessionKey: WorkflowIndex, events: String) extends AlgoInput
 case class WorkflowOutput(index: WorkflowIndex, summaries: Buffer[MeasuredEvent]) extends AlgoOutput
 case class WorkflowIndex(did: String, channel: String, pdataId: String)
 
